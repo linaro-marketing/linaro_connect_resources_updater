@@ -1,5 +1,6 @@
 import json
 import requests
+import boto3
 
 class ResourcesJSONUpdater:
     """This class handles the updating of a resources.json for a given Linaro Connect event"""
@@ -10,7 +11,48 @@ class ResourcesJSONUpdater:
         self.resources_json_url = self.connect_resources_bucket_url + "resources.json"
         self.presentations_url = self.connect_resources_bucket_url + "presentations/"
         self.videos_url = self.connect_resources_bucket_url + "videos/"
+        # self.main()
+
+        self.presentations_uploaded = self.fetch_files_from_s3_path(
+            "static-linaro-org", "connect/san19/presentations/")
+
+        self.videos_uploaded = self.fetch_files_from_s3_path(
+            "static-linaro-org", "connect/san19/videos/")
+
         self.main()
+
+    def fetch_files_from_s3_path(self, s3_bucket, s3_path):
+        """ Fetches a list of files from an s3 path/bucket """
+        s3 = boto3.resource('s3')
+        bucket = s3.Bucket('static-linaro-org')
+        uploaded_files = []
+        for obj in bucket.objects.filter(Prefix=s3_path):
+            file_name = obj.key
+            session_id = file_name.split(".")[0].split("/")[-1]
+            dateModified = obj.last_modified
+            uploaded_files.append([session_id, dateModified])
+        if len(uploaded_files) > 0:
+            return uploaded_files
+
+
+    def check_for_presentation(self, session_id):
+        """"""
+        found = False
+        for file_uploaded in self.presentations_uploaded:
+            upload_session_id  = file_uploaded[0]
+            if session_id == upload_session_id:
+                found = True
+        return found
+
+    def check_for_video(self, session_id):
+        """"""
+        found = False
+        for file_uploaded in self.videos_uploaded:
+            upload_session_id  = file_uploaded[0]
+            if session_id == upload_session_id:
+                found = True
+        return found
+
 
     def main(self):
         json_data = self.fetch_resources_json()
@@ -18,16 +60,16 @@ class ResourcesJSONUpdater:
             print("Updating the resources.json file. Please wait...")
         for each in json_data:
             session_id = each["session_id"].lower()
-            presentation_url = "{0}{1}.pdf".format(self.presentations_url, session_id)
-            video_url = "{0}{1}.mp4".format(self.videos_url, session_id)
-            presentation_exists = self.check_for_file(presentation_url)
+            presentation_exists = self.check_for_presentation(session_id)
+            video_exists = self.check_for_video(session_id)
             if presentation_exists:
-                each["amazon_s3_presentation_url"] = presentation_url
-            video_exists = self.check_for_file(video_url)
+                presentation_url = "{0}{1}.pdf".format("https://static.linaro.org/connect/san19/presentations/",session_id)
+                each["s3_presentation_url"] = presentation_url
+            video_exists = self.check_for_video(session_id)
             if video_exists:
-                each["amazon_s3_video_url"] = video_url
+                video_url = "{0}{1}.mp4".format("https://static.linaro.org/connect/san19/videos/", session_id)
+                each["s3_video_url"] = video_url
             print("*", end="", flush=True)
-        print()
 
         print("Writing the resources.json file...")
         with open('resources.json', 'w') as outfile:
@@ -35,7 +77,7 @@ class ResourcesJSONUpdater:
         if self._verbose:
             print("resources.json file written!")
             print("You can now run:")
-            print("aws s3 --profile Web_Developer cp resources.json s3://static-linaro-org/connect/san19/resources.json ")
+            print("aws s3 cp resources.json s3://static-linaro-org/connect/san19/resources.json ")
 
     def check_for_file(self, file_url):
         try:

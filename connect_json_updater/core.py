@@ -4,25 +4,43 @@ import boto3
 
 
 class ConnectJSONUpdater:
-    """This class handles the updating of a resources.json for a given Linaro Connect event"""
+    """
+    The Linaro Connect JSON Updater
 
-    def __init__(self, ):
-        self._verbose = True
-        self.connect_code = connect_code.lower()
-        self.connect_resources_bucket_url = "https://static.linaro.org/connect/{0}/".format(
-            self.connect_code)
-        self.resources_json_url = self.connect_resources_bucket_url + "resources.json"
-        self.presentations_url = self.connect_resources_bucket_url + "presentations/"
-        self.videos_url = self.connect_resources_bucket_url + "videos/"
-        # self.main()
+    Attributes
+    ----------
+    s3_bucket : string
+        The s3 bucket e.g static-linaro-org
+    presentations_object_prefix: string
+        The s3 object key prefix to the presentation objects
+    videos_object_prefix: string
+        The s3 object key prefix to the video objects
+    json_object_key: string
+        The s3 object key name of the resources json file
 
-        self.presentations_uploaded = self.fetch_files_from_s3_path(
-            "static-linaro-org", "connect/san19/presentations/")
+    Methods
+    -------
+    update()
+        Download and update the resources.json file.
+    updateEntry(key, options)
+        Updates a specific entry in the JSON file based on a key.
+    getMissingPresentations()
+        Returns a list of the missing presentations.
+    getMissingVideos()
+        Returns a list of the missing videos.
 
-        self.videos_uploaded = self.fetch_files_from_s3_path(
-            "static-linaro-org", "connect/san19/videos/")
+    """
 
-        self.main()
+    def __init__(self, s3_bucket_url, presentations_object_prefix="connect/SAN19/presentations/", videos_object_prefix="connect/SAN19/videos/", json_object_key="connect/SAN19/resources.json"):
+
+        # Toggle verbose output
+        self.verbose = True
+        # Set the s3 bucket url
+        self.s3_bucket = s3_bucket_url
+        # Set the s3 urls
+        self.resources_json_url = json_object_key
+        self.presentations_prefix = presentations_object_prefix
+        self.videos_prefix = videos_object_prefix
 
     def fetch_files_from_s3_path(self, s3_bucket, s3_path):
         """ Fetches a list of files from an s3 path/bucket """
@@ -36,6 +54,8 @@ class ConnectJSONUpdater:
             uploaded_files.append([session_id, dateModified])
         if len(uploaded_files) > 0:
             return uploaded_files
+        else:
+            return False
 
     def check_for_presentation(self, session_id):
         found = False
@@ -53,7 +73,61 @@ class ConnectJSONUpdater:
                 found = True
         return found
 
-    def main(self):
+    def updateEntry(self, key, options):
+        """Update an entry in the resources json file
+
+        Paramters
+        ---------
+        key: string
+            The unique key of the entry in the JSON file
+        options: dict
+            Dictionary object containing the changed values and their respective keys
+
+
+        Returns
+        -------
+        boolean: Returns True if the JSON file updated successfully
+
+        """
+        pass
+
+    def getMissingPresentations(self):
+        """Fetches a list of the missing presentations
+
+        Returns
+        -------
+        list: list of the missing presentations
+
+        """
+        pass
+
+    def getMissingVideos(self):
+        """Fetches a list of the missing videos
+
+        Returns
+        -------
+        list: list of the missing videos
+
+        """
+        pass
+
+    def update(self):
+        """Batch update to ensure json file is up to date
+
+        Returns
+        -------
+        boolean: Returns True if the JSON file updated successfully
+
+        """
+
+        # Fetch the current list of presentations from S3
+        self.presentations_uploaded = self.fetch_files_from_s3_path(
+            self.s3_bucket, self.presentations_prefix)
+        # Fetch the current list of videos from S3
+        self.videos_uploaded = self.fetch_files_from_s3_path(
+            self.s3_bucket, self.videos_prefix)
+
+        # Get the current resources json file
         json_data = self.fetch_resources_json()
         missing_presentations_list = []
         missing_videos_list = []
@@ -67,15 +141,11 @@ class ConnectJSONUpdater:
                 presentation_url = "{0}{1}.pdf".format(
                     "https://static.linaro.org/connect/san19/presentations/", session_id)
                 each["s3_presentation_url"] = presentation_url
-            else:
-                missing_presentations_list.append(session_id)
             video_exists = self.check_for_video(session_id)
             if video_exists:
                 video_url = "{0}{1}.mp4".format(
                     "https://static.linaro.org/connect/san19/videos/", session_id)
                 each["s3_video_url"] = video_url
-            else:
-                missing_videos_list.append(session_id)
             print("*", end="", flush=True)
 
         print("Writing the resources.json file...")

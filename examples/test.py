@@ -7,4 +7,5 @@ from connect_json_updater import ConnectJSONUpdater
 
 
 if __name__ == "__main__":
-    resources_updater = ConnectJSONUpdater("SAN19")
+    json_updater = ConnectJSONUpdater("static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
+    json_updater.update()

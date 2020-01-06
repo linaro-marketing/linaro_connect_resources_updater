@@ -12,11 +12,11 @@ class ConnectJSONUpdater:
     s3_bucket : string
         The s3 bucket e.g static-linaro-org
     presentations_object_prefix: string
-        The s3 object key prefix to the presentation objects
+        The s3 object key prefix to the presentation objects e.g connect/SAN19/presentations/
     videos_object_prefix: string
-        The s3 object key prefix to the video objects
+        The s3 object key prefix to the video objects e.g. connect/SAN19/videos/
     json_object_key: string
-        The s3 object key name of the resources json file
+        The s3 object key name of the resources json file e.g connect/SAN19/resources.json
 
     Methods
     -------
@@ -31,21 +31,22 @@ class ConnectJSONUpdater:
 
     """
 
-    def __init__(self, s3_bucket_url, presentations_object_prefix="connect/SAN19/presentations/", videos_object_prefix="connect/SAN19/videos/", json_object_key="connect/SAN19/resources.json"):
+    def __init__(self, s3_bucket_url, presentations_object_prefix, videos_object_prefix, json_object_key):
 
         # Toggle verbose output
-        self.verbose = True
+        self._verbose = True
         # Set the s3 bucket url
         self.s3_bucket = s3_bucket_url
         # Set the s3 urls
-        self.resources_json_url = json_object_key
+        self.resources_json_url = "https://static.linaro.org/" + json_object_key
+        print(self.resources_json_url)
         self.presentations_prefix = presentations_object_prefix
         self.videos_prefix = videos_object_prefix
 
     def fetch_files_from_s3_path(self, s3_bucket, s3_path):
         """ Fetches a list of files from an s3 path/bucket """
         s3 = boto3.resource('s3')
-        bucket = s3.Bucket('static-linaro-org')
+        bucket = s3.Bucket(s3_bucket)
         uploaded_files = []
         for obj in bucket.objects.filter(Prefix=s3_path):
             file_name = obj.key
@@ -188,4 +189,5 @@ class ConnectJSONUpdater:
 
 
 if __name__ == "__main__":
-    updater = ResourcesJSONUpdater("SAN19")
+    json_updater = ConnectJSONUpdater("static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
+    json_updater.update()

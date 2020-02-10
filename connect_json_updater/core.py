@@ -17,6 +17,8 @@ class ConnectJSONUpdater:
         The s3 object key prefix to the presentations/videos/resources.json
     sched_data: json
         The Sched sessions data.
+    sched_data: json
+        AWS credentials Access/secret keys.
 
     Methods
     -------
@@ -42,9 +44,10 @@ class ConnectJSONUpdater:
         self.resources_json_url = "https://static.linaro.org/" + s3_prefix + "resources.json"
         self.presentations_prefix = s3_prefix + "presentations/"
         self.videos_prefix = s3_prefix + "videos/"
-        # Setup Boto3 s3 bucket connection
-        self.s3_client = boto3.client('s3')
-        self.s3_resource = boto3.resource('s3')
+
+        self.session = boto3.Session()
+        self.s3_client = self.session.client('s3')
+        self.s3_resource = self.session.resource('s3')
         self.bucket = self.s3_resource.Bucket(self.s3_bucket)
         # Sched Data from the SchedDataInterface module
         self.sched_data = sched_data

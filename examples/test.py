@@ -12,7 +12,7 @@ if __name__ == "__main__":
         "https://bud20.sched.com", SCHED_API_KEY, "BUD20")
     sched_data = sched_data_interface.getSessionsData()
     json_updater = ConnectJSONUpdater(
-        "static-linaro-org", "connect/bud20/", sched_data)
+        "static-linaro-org", "connect/bud20/", sched_data, "")
 
     missing_presentations = json_updater.getMissingPresentations()
     with open("missing_presentations.txt", "w") as my_file:

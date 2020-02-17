@@ -1,6 +1,7 @@
 import json
 import requests
 import boto3
+import os
 from botocore.exceptions import ClientError
 import logging
 
@@ -38,6 +39,8 @@ class ConnectJSONUpdater:
         # Toggle verbose output
         self._verbose = True
         self.output_directory = output_directory
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
         # Set the s3 bucket url
         self.s3_bucket = s3_bucket_url
         self.s3_prefix = s3_prefix

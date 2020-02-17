@@ -13,4 +13,14 @@ if __name__ == "__main__":
     sched_data = sched_data_interface.getSessionsData()
     json_updater = ConnectJSONUpdater(
         "static-linaro-org", "connect/bud20/", sched_data)
-    json_updater.update_resources_entry_by_session_id("BUD20-103", {"youtube_video_url":"test"})
+
+    missing_presentations = json_updater.getMissingPresentations()
+    with open("missing_presentations.txt", "w") as my_file:
+        for each in missing_presentations:
+            my_file.write(each + "\n")
+
+    missing_videos = json_updater.getMissingVideos()
+    with open("missing_videos.txt", "w") as my_file:
+        for each in missing_videos:
+            my_file.write(each + "\n")
+    json_updater.update()

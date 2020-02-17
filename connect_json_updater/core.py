@@ -41,9 +41,14 @@ class ConnectJSONUpdater:
         self.s3_bucket = s3_bucket_url
         self.s3_prefix = s3_prefix
         # Set the s3 urls
-        self.resources_json_url = "https://static.linaro.org/" + s3_prefix + "resources.json"
+        self.cdn_url = "https://static.linaro.org/"
+        self.resources_json_url = self.cdn_url + s3_prefix + "resources.json"
         self.presentations_prefix = s3_prefix + "presentations/"
+        self.other_files_prefix = s3_prefix + "other_files/"
         self.videos_prefix = s3_prefix + "videos/"
+        self.current_json_data = self.fetch_resources_json()
+        self.missing_videos_list = []
+        self.missing_presentations_list = []
 
         self.session = boto3.Session()
         self.s3_client = self.session.client('s3')
@@ -63,14 +68,13 @@ class ConnectJSONUpdater:
 
     def update_resources_entry_by_session_id(self, session_id, options_dict):
         """Updates the resources json file based on a given session id"""
-        json_data = self.fetch_resources_json()
 
-        for session in json_data:
+        for session in self.current_json_data:
             if session["session_id"] == session_id:
                 for key, value in options_dict.items():
                     session[key] = value
 
-        self.upload_json_data(json_data)
+        self.upload_json_data(self.current_json_data)
 
     def create_initial_resources_json_file(self):
 
@@ -81,42 +85,52 @@ class ConnectJSONUpdater:
         for session in self.sched_data.values():
             new_session_dict = {
                 "session_id": session["session_id"],
-                "s3_presentation_url": "",
+                "s3_presentation_url": [],
                 "s3_video_url": "",
                 "youtube_video_url": "",
-                "other_files": ""
+                "other_files": []
             }
             json_data.append(new_session_dict)
 
         with open('resources.json', 'w') as outfile:
             json.dump(json_data, outfile)
 
-    def fetch_files_from_s3_path(self, s3_bucket, s3_path):
+    def fetch_files_from_s3_path(self, s3_path):
         """ Fetches a list of files from an s3 path/bucket """
         uploaded_files = []
         for obj in self.bucket.objects.filter(Prefix=s3_path):
             file_name = obj.key
             session_id = file_name.split(".")[0].split("/")[-1]
             dateModified = obj.last_modified
-            uploaded_files.append([session_id, dateModified])
+            uploaded_files.append([session_id, dateModified,file_name])
         if len(uploaded_files) > 0:
             return uploaded_files
         else:
             return False
 
     def check_for_presentation(self, session_id):
-        found = False
+        presentations_list = []
         for file_uploaded in self.presentations_uploaded:
-            upload_session_id = file_uploaded[0]
-            if session_id == upload_session_id:
-                found = True
-        return found
+            if session_id in file_uploaded[0] or session_id.upper() in file_uploaded[0]:
+               presentations_list.append(file_uploaded)
+        return presentations_list
+
+    def check_for_other_files(self, session_id):
+        other_files_list = []
+        for file_uploaded in self.other_files_uploaded:
+            if session_id in file_uploaded[0]:
+               other_files_list.append(file_uploaded)
+        return other_files_list
 
     def check_for_video(self, session_id):
         found = False
         for file_uploaded in self.videos_uploaded:
             upload_session_id = file_uploaded[0]
             if session_id == upload_session_id:
+                found = True
+            elif session_id.lower() == upload_session_id:
+                found = True
+            elif session_id.upper() == upload_session_id:
                 found = True
         return found
 
@@ -146,7 +160,16 @@ class ConnectJSONUpdater:
         list: list of the missing presentations
 
         """
-        pass
+        # Fetch the current list of videos from S3
+        self.presentations_uploaded = self.fetch_files_from_s3_path(self.presentations_prefix)
+        for each in self.current_json_data:
+            session_id = each["session_id"]
+            if self.presentations_uploaded != False:
+                presentation_exists = self.check_for_presentation(session_id)
+                if len(presentation_exists) == 0:
+                    self.missing_presentations_list.append(session_id)
+
+        return self.missing_presentations_list
 
     def getMissingVideos(self):
         """Fetches a list of the missing videos
@@ -156,7 +179,17 @@ class ConnectJSONUpdater:
         list: list of the missing videos
 
         """
-        pass
+        # Fetch the current list of videos from S3
+        self.videos_uploaded = self.fetch_files_from_s3_path(self.videos_prefix)
+
+        for each in self.current_json_data:
+            session_id = each["session_id"].lower()
+            if self.videos_uploaded != False:
+                video_exists = self.check_for_video(session_id)
+                if not video_exists:
+                    self.missing_videos_list.append(session_id)
+
+        return self.missing_videos_list
 
     def update(self):
         """Batch update to ensure json file is up to date
@@ -166,14 +199,10 @@ class ConnectJSONUpdater:
         boolean: Returns True if the JSON file updated successfully
 
         """
-
-        # Get the current resources json file
-        json_data = self.fetch_resources_json()
-        print(json_data)
         # Get list of latest session_ids
         list_of_latest_session_ids = [each["session_id"] for each in self.sched_data.values()]
         # Get list of current session_ids
-        list_of_current_session_ids = [each["session_id"] for each in json_data]
+        list_of_current_session_ids = [each["session_id"] for each in self.current_json_data]
 
         # # Test removing latest session
         # list_of_latest_session_ids.pop(2)
@@ -193,60 +222,58 @@ class ConnectJSONUpdater:
                     "youtube_video_url": "",
                     "other_files": ""
                 }
-                json_data.append(new_session_dict)
+                self.current_json_data.append(new_session_dict)
+
         print("{0} sessions Added:".format(len(added_sessions)))
         print(added_sessions)
         # Remove entries that no longer exist
         removed_sessions = []
-        json_data = [entry if entry["session_id"] in list_of_latest_session_ids else removed_sessions.append(entry) for entry in json_data]
+        self.current_json_data = [entry if entry["session_id"] in list_of_latest_session_ids else removed_sessions.append(entry) for entry in self.current_json_data]
         print("{0} sessions removed:".format(len(removed_sessions)))
         print(removed_sessions)
 
         # Update resource urls in json_data
-        #
+        #session_id
         # Fetch the current list of presentations from S3
-        self.presentations_uploaded = self.fetch_files_from_s3_path(
-            self.s3_bucket, self.presentations_prefix)
+        self.presentations_uploaded = self.fetch_files_from_s3_path(self.presentations_prefix)
+        # Fetch the current list of presentations from S3
+        self.other_files_uploaded = self.fetch_files_from_s3_path(self.other_files_prefix)
         # Fetch the current list of videos from S3
-        self.videos_uploaded = self.fetch_files_from_s3_path(
-            self.s3_bucket, self.videos_prefix)
+        self.videos_uploaded = self.fetch_files_from_s3_path(self.videos_prefix)
 
-        missing_presentations_list = []
-        missing_videos_list = []
         if self._verbose:
             print("Updating the resources.json file. Please wait...")
-        for each in json_data:
+
+        for each in self.current_json_data:
             session_id = each["session_id"].lower()
+            if self.other_files_uploaded != False:
+                other_files_list = self.check_for_other_files(each["session_id"])
+                if len(other_files_list) >0:
+                    other_files_url_list = []
+                    for other_file in other_files_list:
+                        other_files_url_list.append("{0}{1}".format(self.cdn_url, other_file[2]))
+                    each["other_files"] = other_files_url_list
+                else:
+                    each["other_files"] = []
+
             if self.presentations_uploaded != False:
-                presentation_exists = self.check_for_presentation(session_id)
-                if presentation_exists:
-                    presentation_url = "{0}{1}.pdf".format(
-                        "https://static.linaro.org/connect/san19/presentations/", session_id)
-                    each["s3_presentation_url"] = presentation_url
-            else:
-                missing_presentations_list.append(session_id)
+                presentations_list = self.check_for_presentation(each["session_id"])
+                if len(presentations_list) >0:
+                    presentations_url_list = []
+                    for presentation_file in presentations_list:
+                        presentations_url_list.append("{0}{1}".format(self.cdn_url, presentation_file[2]))
+                    each["s3_presentation_url"] = presentations_url_list
+                else:
+                    each["s3_presentation_url"] = []
             if self.videos_uploaded != False:
                 video_exists = self.check_for_video(session_id)
                 if video_exists:
-                    video_url = "{0}{1}.mp4".format(
-                        "https://static.linaro.org/connect/san19/videos/", session_id)
+                    video_url = "{0}{1}videos/{2}.mp4".format(self.cdn_url, self.s3_prefix, session_id)
                     each["s3_video_url"] = video_url
-            else:
-                missing_videos_list.append(session_id)
             print("*", end="", flush=True)
 
-        print()
-        print("{} presentations are missing!".format(len(missing_presentations_list)))
-        print("{} videos are missing!".format(len(missing_videos_list)))
+        self.upload_json_data(self.current_json_data)
 
-        self.upload_json_data(json_data)
-
-        with open("missing_presentations_list.txt", "w") as missing_presentations_file:
-            for line in missing_presentations_list:
-                missing_presentations_file.write(line + "\n")
-        with open("missing_videos_list.txt", "w") as missing_videos_file:
-            for line in missing_videos_list:
-                missing_videos_file.write(line + "\n")
 
     def upload_json_data(self, json_data):
         """ Upload given json_data to s3 as resources.json"""

@@ -33,10 +33,11 @@ class ConnectJSONUpdater:
 
     """
 
-    def __init__(self, s3_bucket_url, s3_prefix, sched_data):
+    def __init__(self, s3_bucket_url, s3_prefix, sched_data, output_directory):
 
         # Toggle verbose output
         self._verbose = True
+        self.output_directory = output_directory
         # Set the s3 bucket url
         self.s3_bucket = s3_bucket_url
         self.s3_prefix = s3_prefix
@@ -279,10 +280,11 @@ class ConnectJSONUpdater:
         """ Upload given json_data to s3 as resources.json"""
 
         print("Writing the resources.json file locally...")
-        with open('resources.json', 'w') as outfile:
+        output_path = os.path.join(self.output_directory, "resources.json")
+        with open(output_path, 'w') as outfile:
             json.dump(json_data, outfile)
         # Upload updated resources.json file
-        uploaded = self.upload_file_to_s3("resources.json", self.s3_prefix + "resources.json")
+        uploaded = self.upload_file_to_s3(output_path, self.s3_prefix + "resources.json")
         if uploaded:
             print("The updated resources.json file has been uploaded to s3.")
             return True

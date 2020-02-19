@@ -34,7 +34,7 @@ class ConnectJSONUpdater:
 
     """
 
-    def __init__(self, s3_bucket_url, s3_prefix, sched_data, output_directory, aws_profile):
+    def __init__(self, s3_bucket_url, s3_prefix, sched_data, output_directory):
 
         # Toggle verbose output
         self._verbose = True
@@ -54,7 +54,7 @@ class ConnectJSONUpdater:
         self.missing_videos_list = []
         self.missing_presentations_list = []
 
-        self.session = boto3.Session(profile_name=aws_profile)
+        self.session = boto3.Session()
         self.s3_client = self.session.client('s3')
         self.s3_resource = self.session.resource('s3')
         self.bucket = self.s3_resource.Bucket(self.s3_bucket)

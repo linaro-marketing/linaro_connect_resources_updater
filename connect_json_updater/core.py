@@ -232,7 +232,10 @@ class ConnectJSONUpdater:
         print(added_sessions)
         # Remove entries that no longer exist
         removed_sessions = []
-        self.current_json_data = [entry if entry["session_id"] in list_of_latest_session_ids else removed_sessions.append(entry) for entry in self.current_json_data]
+        for entry in self.current_json_data:
+            if entry["session_id"] not in list_of_latest_session_ids:
+                self.current_json_data.remove(entry)
+                removed_sessions.append(entry)
         print("{0} sessions removed:".format(len(removed_sessions)))
         print(removed_sessions)
 
@@ -275,7 +278,6 @@ class ConnectJSONUpdater:
                     video_url = "{0}{1}videos/{2}.mp4".format(self.cdn_url, self.s3_prefix, session_id)
                     each["s3_video_url"] = video_url
             print("*", end="", flush=True)
-
         self.upload_json_data(self.current_json_data)
 
 

@@ -203,82 +203,91 @@ class ConnectJSONUpdater:
         boolean: Returns True if the JSON file updated successfully
 
         """
-        # Get list of latest session_ids
-        list_of_latest_session_ids = [each["session_id"] for each in self.sched_data.values()]
-        # Get list of current session_ids
-        list_of_current_session_ids = [each["session_id"] for each in self.current_json_data]
 
-        # # Test removing latest session
-        # list_of_latest_session_ids.pop(2)
-        # # Test removing current session
-        # list_of_current_session_ids.pop(1)
+        try:
+            # Get list of latest session_ids
+            list_of_latest_session_ids = [each["session_id"] for each in self.sched_data.values()]
+            # Get list of current session_ids
+            list_of_current_session_ids = [each["session_id"] for each in self.current_json_data]
 
-        # Check if all latest session_ids exist in list_of_current_session_ids
-        # if not then add a new entry to the json_data
-        added_sessions = []
-        for latest in list_of_latest_session_ids:
-            if latest not in list_of_current_session_ids:
-                added_sessions.append(latest)
-                new_session_dict = {
-                    "session_id": latest,
-                    "s3_presentation_url": "",
-                    "s3_video_url": "",
-                    "youtube_video_url": "",
-                    "other_files": ""
-                }
-                self.current_json_data.append(new_session_dict)
+            # # Test removing latest session
+            # list_of_latest_session_ids.pop(2)
+            # # Test removing current session
+            # list_of_current_session_ids.pop(1)
 
-        print("{0} sessions Added:".format(len(added_sessions)))
-        print(added_sessions)
-        # Remove entries that no longer exist
-        removed_sessions = []
-        for entry in self.current_json_data:
-            if entry["session_id"] not in list_of_latest_session_ids:
-                self.current_json_data.remove(entry)
-                removed_sessions.append(entry)
-        print("{0} sessions removed:".format(len(removed_sessions)))
-        print(removed_sessions)
+            # Check if all latest session_ids exist in list_of_current_session_ids
+            # if not then add a new entry to the json_data
+            added_sessions = []
+            for latest in list_of_latest_session_ids:
+                if latest not in list_of_current_session_ids:
+                    added_sessions.append(latest)
+                    new_session_dict = {
+                        "session_id": latest,
+                        "s3_presentation_url": "",
+                        "s3_video_url": "",
+                        "youtube_video_url": "",
+                        "other_files": ""
+                    }
+                    self.current_json_data.append(new_session_dict)
 
-        # Update resource urls in json_data
-        #session_id
-        # Fetch the current list of presentations from S3
-        self.presentations_uploaded = self.fetch_files_from_s3_path(self.presentations_prefix)
-        # Fetch the current list of presentations from S3
-        self.other_files_uploaded = self.fetch_files_from_s3_path(self.other_files_prefix)
-        # Fetch the current list of videos from S3
-        self.videos_uploaded = self.fetch_files_from_s3_path(self.videos_prefix)
+            print("{0} sessions Added:".format(len(added_sessions)))
+            print(added_sessions)
+            # Remove entries that no longer exist
+            removed_sessions = []
+            for entry in self.current_json_data:
+                if entry["session_id"] not in list_of_latest_session_ids:
+                    self.current_json_data.remove(entry)
+                    removed_sessions.append(entry)
+            print("{0} sessions removed:".format(len(removed_sessions)))
+            print(removed_sessions)
 
-        if self._verbose:
-            print("Updating the resources.json file. Please wait...")
+            # Update resource urls in json_data
+            #session_id
+            # Fetch the current list of presentations from S3
+            self.presentations_uploaded = self.fetch_files_from_s3_path(self.presentations_prefix)
+            # Fetch the current list of presentations from S3
+            self.other_files_uploaded = self.fetch_files_from_s3_path(self.other_files_prefix)
+            # Fetch the current list of videos from S3
+            self.videos_uploaded = self.fetch_files_from_s3_path(self.videos_prefix)
 
-        for each in self.current_json_data:
-            session_id = each["session_id"].lower()
-            if self.other_files_uploaded != False:
-                other_files_list = self.check_for_other_files(each["session_id"])
-                if len(other_files_list) >0:
-                    other_files_url_list = []
-                    for other_file in other_files_list:
-                        other_files_url_list.append("{0}{1}".format(self.cdn_url, other_file[2]))
-                    each["other_files"] = other_files_url_list
-                else:
-                    each["other_files"] = []
+            if self._verbose:
+                print("Updating the resources.json file. Please wait...")
 
-            if self.presentations_uploaded != False:
-                presentations_list = self.check_for_presentation(each["session_id"])
-                if len(presentations_list) >0:
-                    presentations_url_list = []
-                    for presentation_file in presentations_list:
-                        presentations_url_list.append("{0}{1}".format(self.cdn_url, presentation_file[2]))
-                    each["s3_presentation_url"] = presentations_url_list
-                else:
-                    each["s3_presentation_url"] = []
-            if self.videos_uploaded != False:
-                video_exists = self.check_for_video(session_id)
-                if video_exists:
-                    video_url = "{0}{1}videos/{2}.mp4".format(self.cdn_url, self.s3_prefix, session_id)
-                    each["s3_video_url"] = video_url
-            print("*", end="", flush=True)
-        self.upload_json_data(self.current_json_data)
+            for each in self.current_json_data:
+                session_id = each["session_id"].lower()
+                if self.other_files_uploaded != False:
+                    other_files_list = self.check_for_other_files(each["session_id"])
+                    if len(other_files_list) >0:
+                        other_files_url_list = []
+                        for other_file in other_files_list:
+                            other_files_url_list.append("{0}{1}".format(self.cdn_url, other_file[2]))
+                        each["other_files"] = other_files_url_list
+                    else:
+                        each["other_files"] = []
+
+                if self.presentations_uploaded != False:
+                    presentations_list = self.check_for_presentation(each["session_id"])
+                    if len(presentations_list) >0:
+                        presentations_url_list = []
+                        for presentation_file in presentations_list:
+                            presentations_url_list.append("{0}{1}".format(self.cdn_url, presentation_file[2]))
+                        each["s3_presentation_url"] = presentations_url_list
+                    else:
+                        each["s3_presentation_url"] = []
+                if self.videos_uploaded != False:
+                    video_exists = self.check_for_video(session_id)
+                    if video_exists:
+                        video_url = "{0}{1}videos/{2}.mp4".format(self.cdn_url, self.s3_prefix, session_id)
+                        each["s3_video_url"] = video_url
+                print("*", end="", flush=True)
+            uploaded = self.upload_json_data(self.current_json_data)
+            if uploaded:
+                return True
+            else:
+                raise Exception("Failed to upload modified resources.json file.")
+        except Exception as e:
+            print(e)
+            return False
 
 
     def upload_json_data(self, json_data):

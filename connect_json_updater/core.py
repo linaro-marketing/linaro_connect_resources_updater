@@ -46,7 +46,7 @@ class ConnectJSONUpdater:
         self.s3_prefix = s3_prefix
         # Set the s3 urls
         self.cdn_url = "https://static.linaro.org/"
-        self.resources_json_url = self.cdn_url + s3_prefix + "resources.json"
+        self.resources_json_url = "https://static-linaro-org.s3.amazonaws.com/" + s3_prefix + "resources.json"
         self.presentations_prefix = s3_prefix + "presentations/"
         self.other_files_prefix = s3_prefix + "other_files/"
         self.videos_prefix = s3_prefix + "videos/"
